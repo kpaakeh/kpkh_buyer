@@ -14,29 +14,33 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 
 public class kpkh_block {
 
+    public static Block BUYER_BLOCK;
+    public static BlockItem BUYER_ITEM = register(
+        ModBlockItemIds.BUYER,
+        BuyerBlock::new,
+        BlockBehaviour.Properties.of()
+            .sound(SoundType.IRON)
+            .destroyTime(1.5f)
+            .explosionResistance(1.5f)
+            .requiresCorrectToolForDrops()
+    );
+
     private static BlockItem register(
             BlockItemId id,
             Function<BlockBehaviour.Properties, Block> blockFactory,
             BlockBehaviour.Properties properties
     ) {
-        // Создаём и регистрируем блок
         Block block = blockFactory.apply(properties.setId(id.block()));
         Registry.register(BuiltInRegistries.BLOCK, id.block(), block);
 
-        // Создаём и регистрируем предмет блока
-        BlockItem blockItem = new BlockItem(
-            block,
-            new Item.Properties().setId(id.item())
-        );
-        return Registry.register(BuiltInRegistries.ITEM, id.item(), blockItem);
+        BlockItem blockItem = new BlockItem(block, new Item.Properties().setId(id.item()));
+        Registry.register(BuiltInRegistries.ITEM, id.item(), blockItem);
+
+        BUYER_BLOCK = block;
+        return blockItem;
     }
 
-    public static final BlockItem BUYER_ITEM = register(
-        ModBlockItemIds.BUYER,
-        Block::new,
-        BlockBehaviour.Properties.of().sound(SoundType.IRON)
-    );
-
     public static void initialize() {
+        // Класс уже загружен, статика выполнилась при первом обращении
     }
 }

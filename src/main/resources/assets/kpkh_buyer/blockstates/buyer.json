@@ -1,7 +1,8 @@
 {
   "variants": {
-    "": {
-      "model": "kpkh_buyer:block/buyer"
-    }
+    "facing=north": { "model": "kpkh_buyer:block/buyer" },
+    "facing=east":  { "model": "kpkh_buyer:block/buyer", "y": 90 },
+    "facing=south": { "model": "kpkh_buyer:block/buyer", "y": 180 },
+    "facing=west":  { "model": "kpkh_buyer:block/buyer", "y": 270 }
   }
 }
