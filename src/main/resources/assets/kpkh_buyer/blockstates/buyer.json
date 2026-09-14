@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "kpkh_buyer:block/buyer"
+    }
+  }
+}
