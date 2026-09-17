@@ -44,13 +44,10 @@ public class EconomyCommands {
                                     return 0;
                                 }
 
-                                if (!EconomyManager.withdraw(sender.getUUID(), amount)) {
-                                    ctx.getSource().sendFailure(
-                                        Component.literal("Недостаточно средств"));
+                                if (!EconomyManager.transfer(sender.getUUID(), targetUuid, amount, "pay command")) {
+                                    ctx.getSource().sendFailure(Component.literal("Недостаточно средств"));
                                     return 0;
                                 }
-
-                                EconomyManager.deposit(targetUuid, amount);
 
                                 ctx.getSource().sendSuccess(() -> Component.literal(
                                     "Переведено " + EconomyManager.format(amount)

@@ -15,7 +15,6 @@ public class Kpkh_buyer implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
-        EconomyManager.load();            // загружаем балансы
         BuyerConfig.load();               // загружаем цены
         EconomyCommands.register();       // /bal и /pay
         EconomyEvents.register();         // запоминаем имена при входе

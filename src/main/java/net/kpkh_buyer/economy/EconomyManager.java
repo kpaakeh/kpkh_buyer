@@ -1,97 +1,251 @@
 package net.kpkh_buyer.economy;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.reflect.TypeToken;
-import net.fabricmc.loader.api.FabricLoader;
-
-import java.io.IOException;
-import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
-import java.util.Map;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 public class EconomyManager {
 
-    private static final Path CONFIG_PATH = FabricLoader.getInstance()
-            .getConfigDir().resolve("kpkh_economy.json");
-    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static Connection connection;
+    private static final Object LOCK = new Object();
 
-    private static final Map<UUID, Double> balances = new HashMap<>();
-    private static final Map<UUID, String> names = new HashMap<>();
-
-    public static void load() {
-        try {
-            if (Files.exists(CONFIG_PATH)) {
-                Type type = new TypeToken<Map<String, Double>>(){}.getType();
-                Map<String, Double> raw = GSON.fromJson(Files.newBufferedReader(CONFIG_PATH), type);
-                balances.clear();
-                if (raw != null) {
-                    raw.forEach((k, v) -> balances.put(UUID.fromString(k), v));
-                }
+    /** Вызывается при старте сервера/мира. economyDir = <мир>/economy */
+    public static void initialize(Path economyDir) {
+        synchronized (LOCK) {
+            try {
+                Files.createDirectories(economyDir);
+                Path dbPath = economyDir.resolve("economy.db");
+                Class.forName("org.sqlite.JDBC");
+                connection = DriverManager.getConnection("jdbc:sqlite:" + dbPath.toAbsolutePath());
+                createTables();
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to initialize economy DB", e);
             }
-        } catch (IOException e) {
-            e.printStackTrace();
         }
     }
 
-    public static void save() {
-        try {
-            Map<String, Double> raw = new HashMap<>();
-            balances.forEach((k, v) -> raw.put(k.toString(), v));
-            Files.writeString(CONFIG_PATH, GSON.toJson(raw));
-        } catch (IOException e) {
-            e.printStackTrace();
+    public static void shutdown() {
+        synchronized (LOCK) {
+            try {
+                if (connection != null && !connection.isClosed()) connection.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+            connection = null;
         }
     }
+
+    private static void createTables() throws SQLException {
+        try (Statement stmt = connection.createStatement()) {
+            stmt.execute("""
+                CREATE TABLE IF NOT EXISTS balances (
+                    uuid TEXT PRIMARY KEY,
+                    balance REAL NOT NULL DEFAULT 0
+                )
+            """);
+            stmt.execute("""
+                CREATE TABLE IF NOT EXISTS transactions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    from_uuid TEXT,
+                    to_uuid TEXT,
+                    amount REAL NOT NULL,
+                    type TEXT NOT NULL,
+                    reason TEXT,
+                    timestamp INTEGER NOT NULL
+                )
+            """);
+            stmt.execute("""
+                CREATE TABLE IF NOT EXISTS player_names (
+                    uuid TEXT PRIMARY KEY,
+                    name TEXT NOT NULL
+                )
+            """);
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_tx_from ON transactions(from_uuid)");
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_tx_to ON transactions(to_uuid)");
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_tx_time ON transactions(timestamp)");
+        }
+    }
+
+    // ---------- Базовые операции ----------
 
     public static double getBalance(UUID uuid) {
-        return balances.getOrDefault(uuid, 0.0);
+        synchronized (LOCK) {
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "SELECT balance FROM balances WHERE uuid = ?")) {
+                ps.setString(1, uuid.toString());
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) return rs.getDouble(1);
+                }
+            } catch (SQLException e) { e.printStackTrace(); }
+            return 0.0;
+        }
     }
 
     public static void setBalance(UUID uuid, double amount) {
-        balances.put(uuid, Math.max(0, amount));
-        save();
+        synchronized (LOCK) {
+            double clamped = Math.max(0, amount);
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "INSERT INTO balances(uuid, balance) VALUES(?, ?) " +
+                    "ON CONFLICT(uuid) DO UPDATE SET balance = excluded.balance")) {
+                ps.setString(1, uuid.toString());
+                ps.setDouble(2, clamped);
+                ps.executeUpdate();
+            } catch (SQLException e) { e.printStackTrace(); }
+        }
     }
 
     public static void deposit(UUID uuid, double amount) {
         if (amount <= 0) return;
-        balances.merge(uuid, amount, Double::sum);
-        save();
+        synchronized (LOCK) {
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "INSERT INTO balances(uuid, balance) VALUES(?, ?) " +
+                    "ON CONFLICT(uuid) DO UPDATE SET balance = balance + excluded.balance")) {
+                ps.setString(1, uuid.toString());
+                ps.setDouble(2, amount);
+                ps.executeUpdate();
+            } catch (SQLException e) { e.printStackTrace(); }
+            logTransaction(null, uuid, amount, "deposit", null);
+        }
     }
 
     public static boolean withdraw(UUID uuid, double amount) {
         if (amount <= 0) return false;
-        double current = getBalance(uuid);
-        if (current < amount) return false;
-        balances.put(uuid, current - amount);
-        save();
-        return true;
+        synchronized (LOCK) {
+            if (getBalance(uuid) < amount) return false;
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "UPDATE balances SET balance = balance - ? WHERE uuid = ?")) {
+                ps.setDouble(1, amount);
+                ps.setString(2, uuid.toString());
+                ps.executeUpdate();
+            } catch (SQLException e) { e.printStackTrace(); return false; }
+            logTransaction(uuid, null, amount, "withdraw", null);
+            return true;
+        }
     }
+
+    /** Атомарный перевод между двумя игроками с записью в историю */
+    public static boolean transfer(UUID from, UUID to, double amount, String reason) {
+        if (amount <= 0 || from.equals(to)) return false;
+        synchronized (LOCK) {
+            if (getBalance(from) < amount) return false;
+            try {
+                connection.setAutoCommit(false);
+                try (PreparedStatement ps = connection.prepareStatement(
+                        "UPDATE balances SET balance = balance - ? WHERE uuid = ?")) {
+                    ps.setDouble(1, amount);
+                    ps.setString(2, from.toString());
+                    ps.executeUpdate();
+                }
+                try (PreparedStatement ps = connection.prepareStatement(
+                        "INSERT INTO balances(uuid, balance) VALUES(?, ?) " +
+                        "ON CONFLICT(uuid) DO UPDATE SET balance = balance + excluded.balance")) {
+                    ps.setString(1, to.toString());
+                    ps.setDouble(2, amount);
+                    ps.executeUpdate();
+                }
+                connection.commit();
+            } catch (SQLException e) {
+                try { connection.rollback(); } catch (SQLException ignored) {}
+                e.printStackTrace();
+                return false;
+            } finally {
+                try { connection.setAutoCommit(true); } catch (SQLException ignored) {}
+            }
+            logTransaction(from, to, amount, "transfer", reason);
+            return true;
+        }
+    }
+
+    // ---------- История транзакций ----------
+
+    private static void logTransaction(UUID from, UUID to, double amount, String type, String reason) {
+        try (PreparedStatement ps = connection.prepareStatement(
+                "INSERT INTO transactions(from_uuid, to_uuid, amount, type, reason, timestamp) " +
+                "VALUES (?, ?, ?, ?, ?, ?)")) {
+            ps.setString(1, from != null ? from.toString() : null);
+            ps.setString(2, to != null ? to.toString() : null);
+            ps.setDouble(3, amount);
+            ps.setString(4, type);
+            ps.setString(5, reason);
+            ps.setLong(6, System.currentTimeMillis());
+            ps.executeUpdate();
+        } catch (SQLException e) { e.printStackTrace(); }
+    }
+
+    public static List<TransactionRecord> getHistory(UUID uuid, int limit) {
+        List<TransactionRecord> list = new ArrayList<>();
+        synchronized (LOCK) {
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "SELECT id, from_uuid, to_uuid, amount, type, reason, timestamp " +
+                    "FROM transactions WHERE from_uuid = ? OR to_uuid = ? " +
+                    "ORDER BY timestamp DESC LIMIT ?")) {
+                ps.setString(1, uuid.toString());
+                ps.setString(2, uuid.toString());
+                ps.setInt(3, limit);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        String f = rs.getString("from_uuid");
+                        String t = rs.getString("to_uuid");
+                        list.add(new TransactionRecord(
+                                rs.getLong("id"),
+                                f != null ? UUID.fromString(f) : null,
+                                t != null ? UUID.fromString(t) : null,
+                                rs.getDouble("amount"),
+                                rs.getString("type"),
+                                rs.getString("reason"),
+                                rs.getLong("timestamp")
+                        ));
+                    }
+                }
+            } catch (SQLException e) { e.printStackTrace(); }
+        }
+        return list;
+    }
+
+    public record TransactionRecord(long id, UUID from, UUID to, double amount,
+                                    String type, String reason, long timestamp) {}
+
+    // ---------- Утилиты ----------
 
     public static String format(double amount) {
         return String.format("$%,.2f", amount);
     }
 
-    /** Запоминаем имя игрока при входе, чтобы /pay работал по нику и для офлайн-игроков */
     public static void registerName(UUID uuid, String name) {
-        if (name != null && !name.isEmpty()) {
-            names.put(uuid, name);
+        if (name == null || name.isEmpty()) return;
+        synchronized (LOCK) {
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "INSERT INTO player_names(uuid, name) VALUES(?, ?) " +
+                    "ON CONFLICT(uuid) DO UPDATE SET name = excluded.name")) {
+                ps.setString(1, uuid.toString());
+                ps.setString(2, name);
+                ps.executeUpdate();
+            } catch (SQLException e) { e.printStackTrace(); }
         }
     }
 
-    /** Ищет UUID по нику: сначала среди зарегистрированных, потом создаёт offline-UUID */
     public static UUID resolveByName(String name) {
-        for (Map.Entry<UUID, String> e : names.entrySet()) {
-            if (e.getValue().equalsIgnoreCase(name)) return e.getKey();
+        synchronized (LOCK) {
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "SELECT uuid FROM player_names WHERE LOWER(name) = LOWER(?) LIMIT 1")) {
+                ps.setString(1, name);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) return UUID.fromString(rs.getString(1));
+                }
+            } catch (SQLException e) { e.printStackTrace(); }
         }
         return getOfflineUUID(name);
     }
 
-    /** Стандартный Minecraft-способ создания UUID для офлайн-игрока */
     public static UUID getOfflineUUID(String name) {
         return UUID.nameUUIDFromBytes(("OfflinePlayer:" + name).getBytes(StandardCharsets.UTF_8));
     }
