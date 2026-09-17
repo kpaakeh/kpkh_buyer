@@ -14,7 +14,7 @@ import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.resources.Identifier;
 import net.minecraft.core.registries.BuiltInRegistries;
-import me.andy.ecobal.api.EconomyManager;
+import net.kpkh_buyer.economy.EconomyManager;
 
 public class BuyerBlockEntity extends BaseContainerBlockEntity {
 
@@ -125,8 +125,8 @@ public class BuyerBlockEntity extends BaseContainerBlockEntity {
             double price = BuyerConfig.getPrice(id);
             if (price > 0 && this.lastPlayer != null) {
                 // Начисляем деньги игроку
-                me.andy.ecobal.api.EconomyManager.silentDeposit(
-                        this.lastPlayer.getUUID(), price * stack.getCount());
+                EconomyManager.deposit(
+                    this.lastPlayer.getUUID(), price * stack.getCount());
                 // Не кладём предмет в слот — он "продан"
                 this.setChanged();
                 return;

@@ -1,12 +1,17 @@
 package net.kpkh_buyer.client;
 
+import net.kpkh_buyer.BuyerConfig;
 import net.kpkh_buyer.BuyerScreenHandler;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.ItemStack;
+
+import java.util.List;
 
 public class BuyerScreen extends AbstractContainerScreen<BuyerScreenHandler> {
 
@@ -15,7 +20,7 @@ public class BuyerScreen extends AbstractContainerScreen<BuyerScreenHandler> {
 
     public BuyerScreen(BuyerScreenHandler handler, Inventory inventory, Component title) {
         super(handler, inventory, title, 304, 238);
-        this.inventoryLabelX = 71; // центрируем подпись «Инвентарь»
+        this.inventoryLabelX = 71;
     }
 
     @Override
@@ -28,21 +33,19 @@ public class BuyerScreen extends AbstractContainerScreen<BuyerScreenHandler> {
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-        this.extractBackground(graphics, mouseX, mouseY, partialTick);
-        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+    protected List<Component> getTooltipFromContainerItem(ItemStack stack) {
+        List<Component> tooltip = super.getTooltipFromContainerItem(stack);
 
-        // Баланс игрока справа от подписи «Инвентарь»
-        if (this.minecraft != null && this.minecraft.player != null) {
-            double balance = me.andy.ecobal.api.EconomyManager.getPlayerBalance(this.minecraft.player.getUUID());
-            String balanceText = me.andy.ecobal.api.EconomyManager.formatBalance(balance);
+        if (stack.isEmpty()) return tooltip;
 
-            int labelX = this.inventoryLabelX;
-            int labelY = this.inventoryLabelY;
-            int labelWidth = this.font.width(this.playerInventoryTitle);
+        Identifier id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        double price = BuyerConfig.getPrice(id.toString());
 
-            graphics.text(this.font, balanceText,
-                    labelX + labelWidth + 12, labelY, 0xFFD700, true);
+        if (price > 0) {
+            tooltip.add(Component.literal("§6Цена продажи: §e" 
+                    + net.kpkh_buyer.economy.EconomyManager.format(price)));
+            tooltip.add(Component.literal("§7Кликните по предмету в инвентаре, чтобы продать"));
         }
+        return tooltip;
     }
 }

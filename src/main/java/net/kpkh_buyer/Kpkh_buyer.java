@@ -1,6 +1,9 @@
 package net.kpkh_buyer;
 
 import net.fabricmc.api.ModInitializer;
+import net.kpkh_buyer.economy.EconomyCommands;
+import net.kpkh_buyer.economy.EconomyEvents;
+import net.kpkh_buyer.economy.EconomyManager;
 import net.minecraft.resources.Identifier;
 
 import org.slf4j.Logger;
@@ -12,6 +15,11 @@ public class Kpkh_buyer implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
+        EconomyManager.load();            // загружаем балансы
+        BuyerConfig.load();               // загружаем цены
+        EconomyCommands.register();       // /bal и /pay
+        EconomyEvents.register();         // запоминаем имена при входе
+
 		BuyerConfig.load();  
 		kpkh_block.initialize();          // создаёт BUYER_BLOCK и BUYER_ITEM
 		ModBlockEntities.initialize();    // использует BUYER_BLOCK

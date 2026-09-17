@@ -11,7 +11,7 @@ import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
-import me.andy.ecobal.api.EconomyManager;
+import net.kpkh_buyer.economy.EconomyManager;
 
 public class BuyerScreenHandler extends AbstractContainerMenu {
 
@@ -95,12 +95,13 @@ public class BuyerScreenHandler extends AbstractContainerMenu {
                 double price = BuyerConfig.getPrice(id.toString());
                 if (price > 0) {
                     if (!player.level().isClientSide()) {
-                        EconomyManager.silentDeposit(player.getUUID(), price * stack.getCount());
+                        net.kpkh_buyer.economy.EconomyManager.deposit(
+                                player.getUUID(), price * stack.getCount());
                         slot.set(ItemStack.EMPTY);
                         slot.setChanged();
                         this.broadcastChanges();
                     }
-                    return; // не выполняем стандартную логику перемещения
+                    return;
                 }
             }
         }
