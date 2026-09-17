@@ -13,9 +13,10 @@ public class BuyerScreen extends AbstractContainerScreen<BuyerScreenHandler> {
     private static final Identifier TEXTURE = Identifier.fromNamespaceAndPath(
             "kpkh_buyer", "textures/gui/buyer_gui.png");
 
-         public BuyerScreen(BuyerScreenHandler handler, Inventory inventory, Component title) {
-            super(handler, inventory, title, 304, 238);
-        }
+    public BuyerScreen(BuyerScreenHandler handler, Inventory inventory, Component title) {
+        super(handler, inventory, title, 304, 238);
+        this.inventoryLabelX = 71; // центрируем подпись «Инвентарь»
+    }
 
     @Override
     public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
@@ -30,6 +31,18 @@ public class BuyerScreen extends AbstractContainerScreen<BuyerScreenHandler> {
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         this.extractBackground(graphics, mouseX, mouseY, partialTick);
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
-        // Если нужен tooltip — он отрисовывается автоматически в AbstractContainerScreen
+
+        // Баланс игрока справа от подписи «Инвентарь»
+        if (this.minecraft != null && this.minecraft.player != null) {
+            double balance = me.andy.ecobal.api.EconomyManager.getPlayerBalance(this.minecraft.player.getUUID());
+            String balanceText = me.andy.ecobal.api.EconomyManager.formatBalance(balance);
+
+            int labelX = this.inventoryLabelX;
+            int labelY = this.inventoryLabelY;
+            int labelWidth = this.font.width(this.playerInventoryTitle);
+
+            graphics.text(this.font, balanceText,
+                    labelX + labelWidth + 12, labelY, 0xFFD700, true);
+        }
     }
 }

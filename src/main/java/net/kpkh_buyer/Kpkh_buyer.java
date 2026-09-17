@@ -12,6 +12,7 @@ public class Kpkh_buyer implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
+		BuyerConfig.load();  
 		kpkh_block.initialize();          // создаёт BUYER_BLOCK и BUYER_ITEM
 		ModBlockEntities.initialize();    // использует BUYER_BLOCK
 		ModScreenHandlers.initialize();   // регистрирует MenuType

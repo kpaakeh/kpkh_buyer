@@ -12,6 +12,9 @@ import net.minecraft.world.level.block.entity.BaseContainerBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
+import net.minecraft.resources.Identifier;
+import net.minecraft.core.registries.BuiltInRegistries;
+import me.andy.ecobal.api.EconomyManager;
 
 public class BuyerBlockEntity extends BaseContainerBlockEntity {
 
@@ -26,8 +29,16 @@ public class BuyerBlockEntity extends BaseContainerBlockEntity {
         return Component.translatable("container.kpkh_buyer.buyer");
     }
 
+    // Абстрактный метод из BaseContainerBlockEntity — обязателен
     @Override
     protected AbstractContainerMenu createMenu(int syncId, Inventory playerInventory) {
+        return new BuyerScreenHandler(syncId, playerInventory, this);
+    }
+
+    // Метод из MenuConstructor — должен быть public
+    @Override
+    public AbstractContainerMenu createMenu(int syncId, Inventory playerInventory, Player player) {
+        this.setLastPlayer(player);
         return new BuyerScreenHandler(syncId, playerInventory, this);
     }
 
@@ -40,7 +51,15 @@ public class BuyerBlockEntity extends BaseContainerBlockEntity {
     protected void setItems(NonNullList<ItemStack> items) {
         this.items = items;
     }
+    private net.minecraft.world.entity.player.Player lastPlayer;
 
+    public void setLastPlayer(net.minecraft.world.entity.player.Player player) {
+        this.lastPlayer = player;
+    }
+
+    public net.minecraft.world.entity.player.Player getLastPlayer() {
+        return this.lastPlayer;
+    }
     @Override
     public int getContainerSize() {
         return this.items.size();
@@ -71,13 +90,6 @@ public class BuyerBlockEntity extends BaseContainerBlockEntity {
     }
 
     @Override
-    public void setItem(int slot, ItemStack stack) {
-        this.items.set(slot, stack);
-        stack.limitSize(this.getMaxStackSize(stack));
-        this.setChanged();
-    }
-
-    @Override
     public boolean stillValid(Player player) {
         return this.level != null && this.level.getBlockEntity(this.worldPosition) == this
                 && player.distanceToSqr(this.worldPosition.getX() + 0.5, this.worldPosition.getY() + 0.5, this.worldPosition.getZ() + 0.5) <= 64.0;
@@ -100,5 +112,29 @@ public class BuyerBlockEntity extends BaseContainerBlockEntity {
         super.loadAdditional(input);
         this.items = NonNullList.withSize(this.getContainerSize(), ItemStack.EMPTY);
         ContainerHelper.loadAllItems(input, this.items);
+    }
+
+    @Override
+    public void setItem(int slot, ItemStack stack) {
+        if (!stack.isEmpty() && this.level != null && !this.level.isClientSide()) {
+            // Получаем ID предмета
+            net.minecraft.resources.Identifier itemId = 
+                    net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem());
+            String id = itemId.toString();
+
+            double price = BuyerConfig.getPrice(id);
+            if (price > 0 && this.lastPlayer != null) {
+                // Начисляем деньги игроку
+                me.andy.ecobal.api.EconomyManager.silentDeposit(
+                        this.lastPlayer.getUUID(), price * stack.getCount());
+                // Не кладём предмет в слот — он "продан"
+                this.setChanged();
+                return;
+            }
+        }
+        // Если предмет не покупается — кладём как обычно
+        this.items.set(slot, stack);
+        stack.limitSize(this.getMaxStackSize(stack));
+        this.setChanged();
     }
 }
