@@ -1,6 +1,5 @@
 package net.kpkh_buyer;
 
-import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionResult;
@@ -23,8 +22,6 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 
 public class BuyerBlock extends HorizontalDirectionalBlock implements EntityBlock {
 
-    public static final MapCodec<BuyerBlock> CODEC = Block.simpleCodec(BuyerBlock::new);
-
     private static final VoxelShape SHAPE_NORTH;
     static {
         VoxelShape shape = Shapes.empty();
@@ -36,11 +33,6 @@ public class BuyerBlock extends HorizontalDirectionalBlock implements EntityBloc
 
     public BuyerBlock(Properties properties) {
         super(properties);
-    }
-
-    @Override
-    protected MapCodec<? extends HorizontalDirectionalBlock> codec() {
-        return CODEC;
     }
 
     @Override

@@ -13,9 +13,9 @@ public class BuyerScreen extends AbstractContainerScreen<BuyerScreenHandler> {
     private static final Identifier TEXTURE = Identifier.fromNamespaceAndPath(
             "kpkh_buyer", "textures/gui/buyer_gui.png");
 
-    public BuyerScreen(BuyerScreenHandler handler, Inventory inventory, Component title) {
-        super(handler, inventory, title, 176, 166);
-    }
+         public BuyerScreen(BuyerScreenHandler handler, Inventory inventory, Component title) {
+            super(handler, inventory, title, 304, 238);
+        }
 
     @Override
     public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
@@ -23,7 +23,7 @@ public class BuyerScreen extends AbstractContainerScreen<BuyerScreenHandler> {
         int y = (this.height - this.imageHeight) / 2;
 
         graphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE, x, y,
-                      0, 0, this.imageWidth, this.imageHeight, 256, 256);
+                      0, 0, this.imageWidth, this.imageHeight, 304, 238);
     }
 
     @Override

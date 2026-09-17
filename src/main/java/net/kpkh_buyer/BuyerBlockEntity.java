@@ -15,7 +15,7 @@ import net.minecraft.world.level.storage.ValueOutput;
 
 public class BuyerBlockEntity extends BaseContainerBlockEntity {
 
-    private NonNullList<ItemStack> items = NonNullList.withSize(27, ItemStack.EMPTY);
+    private NonNullList<ItemStack> items = NonNullList.withSize(98, ItemStack.EMPTY);
 
     public BuyerBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.BUYER_BLOCK_ENTITY, pos, state);
