@@ -3,9 +3,12 @@ package net.kpkh_buyer.economy;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.kpkh_buyer.EconomyScreenHandler;
+import net.kpkh_buyer.economy.net.EconomyNetworking;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.SimpleMenuProvider;
 
 import java.util.UUID;
 
@@ -45,7 +48,8 @@ public class EconomyCommands {
                                 }
 
                                 if (!EconomyManager.transfer(sender.getUUID(), targetUuid, amount, "pay command")) {
-                                    ctx.getSource().sendFailure(Component.literal("Недостаточно средств"));
+                                    ctx.getSource().sendFailure(
+                                        Component.literal("Недостаточно средств"));
                                     return 0;
                                 }
 
@@ -53,7 +57,6 @@ public class EconomyCommands {
                                     "Переведено " + EconomyManager.format(amount)
                                     + " игроку " + targetName), false);
 
-                                // Уведомляем получателя, если он онлайн
                                 ServerPlayer target = ctx.getSource().getServer()
                                     .getPlayerList().getPlayerByName(targetName);
                                 if (target != null) {
@@ -63,6 +66,16 @@ public class EconomyCommands {
                                 }
                                 return 1;
                             })))
+            );
+
+            // /eco — открывает GUI экономики (только отправляет пакет, клиент сам открывает экран)
+            dispatcher.register(
+                Commands.literal("eco")
+                    .executes(ctx -> {
+                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                        EconomyNetworking.sendToPlayer(player);
+                        return 1;
+                    })
             );
         });
     }

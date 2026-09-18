@@ -96,7 +96,7 @@ public class BuyerScreenHandler extends AbstractContainerMenu {
                 if (price > 0) {
                     if (!player.level().isClientSide()) {
                         net.kpkh_buyer.economy.EconomyManager.deposit(
-                                player.getUUID(), price * stack.getCount());
+                            player.getUUID(), price * stack.getCount(), "sell");
                         slot.set(ItemStack.EMPTY);
                         slot.setChanged();
                         this.broadcastChanges();

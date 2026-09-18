@@ -104,6 +104,10 @@ public class EconomyManager {
     }
 
     public static void deposit(UUID uuid, double amount) {
+        deposit(uuid, amount, null);
+    }
+    
+    public static void deposit(UUID uuid, double amount, String reason) {
         if (amount <= 0) return;
         synchronized (LOCK) {
             try (PreparedStatement ps = connection.prepareStatement(
@@ -113,7 +117,7 @@ public class EconomyManager {
                 ps.setDouble(2, amount);
                 ps.executeUpdate();
             } catch (SQLException e) { e.printStackTrace(); }
-            logTransaction(null, uuid, amount, "deposit", null);
+            logTransaction(null, uuid, amount, "deposit", reason);
         }
     }
 
@@ -245,7 +249,43 @@ public class EconomyManager {
         }
         return getOfflineUUID(name);
     }
+    public static String getName(UUID uuid) {
+        synchronized (LOCK) {
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "SELECT name FROM player_names WHERE uuid = ?")) {
+                ps.setString(1, uuid.toString());
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) return rs.getString(1);
+                }
+            } catch (SQLException e) { e.printStackTrace(); }
+        }
+        return uuid.toString().substring(0, 8) + "...";
+    }
+    
+    public record TopEntry(String uuid, String name, double balance) {}
 
+    public static List<TopEntry> getTopBalances(int limit) {
+        List<TopEntry> list = new ArrayList<>();
+        synchronized (LOCK) {
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "SELECT b.uuid, b.balance, p.name FROM balances b " +
+                    "LEFT JOIN player_names p ON p.uuid = b.uuid " +
+                    "ORDER BY b.balance DESC LIMIT ?")) {
+                ps.setInt(1, limit);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        String uuid = rs.getString("uuid");
+                        String name = rs.getString("name");
+                        if (name == null) {
+                            name = uuid.length() >= 8 ? uuid.substring(0, 8) + "..." : uuid;
+                        }
+                        list.add(new TopEntry(uuid, name, rs.getDouble("balance")));
+                    }
+                }
+            } catch (SQLException e) { e.printStackTrace(); }
+        }
+        return list;
+    }
     public static UUID getOfflineUUID(String name) {
         return UUID.nameUUIDFromBytes(("OfflinePlayer:" + name).getBytes(StandardCharsets.UTF_8));
     }

@@ -12,6 +12,10 @@ public class ModScreenHandlers {
             Identifier.fromNamespaceAndPath(Kpkh_buyer.MOD_ID, "buyer"),
             new MenuType<>(BuyerScreenHandler::new, FeatureFlags.VANILLA_SET)
     );
-
+    public static final MenuType<EconomyScreenHandler> ECONOMY_SCREEN_HANDLER = Registry.register(
+        BuiltInRegistries.MENU,
+        Identifier.fromNamespaceAndPath(Kpkh_buyer.MOD_ID, "economy"),
+        new MenuType<>(EconomyScreenHandler::new, FeatureFlags.VANILLA_SET)
+    );
     public static void initialize() {}
 }
