@@ -18,6 +18,7 @@ public class BuyerScreenHandler extends AbstractContainerMenu {
     // Призрачные слоты: используем заглушку-контейнер
     private static final Container GHOST_CONTAINER = createGhostContainer();
     private final Inventory playerInventory;
+    private final BuyerBlockEntity blockEntity; // ← новое поле
 
     private static Container createGhostContainer() {
         SimpleContainer container = new SimpleContainer(98);
@@ -39,6 +40,7 @@ public class BuyerScreenHandler extends AbstractContainerMenu {
     public BuyerScreenHandler(int syncId, Inventory playerInventory, BuyerBlockEntity blockEntity) {
         super(ModScreenHandlers.BUYER_SCREEN_HANDLER, syncId);
         this.playerInventory = playerInventory;
+        this.blockEntity = blockEntity;   // ← добавить
         this.addGhostSlots(GHOST_CONTAINER);
         this.addPlayerSlots(playerInventory);
     }
@@ -47,6 +49,7 @@ public class BuyerScreenHandler extends AbstractContainerMenu {
     public BuyerScreenHandler(int syncId, Inventory playerInventory) {
         super(ModScreenHandlers.BUYER_SCREEN_HANDLER, syncId);
         this.playerInventory = playerInventory;
+        this.blockEntity = null;          // ← добавить
         this.addGhostSlots(GHOST_CONTAINER);
         this.addPlayerSlots(playerInventory);
     }
@@ -95,8 +98,17 @@ public class BuyerScreenHandler extends AbstractContainerMenu {
                 double price = BuyerConfig.getPrice(id.toString());
                 if (price > 0) {
                     if (!player.level().isClientSide()) {
+                        // Формируем причину: "sell:<descId>" для продажи с конкретного блока
+                        String reason = "sell";
+                        if (this.blockEntity != null && this.blockEntity.getLevel() != null) {
+                            net.minecraft.world.level.block.state.BlockState state =
+                                    this.blockEntity.getLevel().getBlockState(this.blockEntity.getBlockPos());
+                            reason = "sell:" + state.getBlock().getDescriptionId();
+                        }
+                        net.kpkh_buyer.economy.EconomyManager.registerName(
+                            player.getUUID(), player.getName().getString());
                         net.kpkh_buyer.economy.EconomyManager.deposit(
-                            player.getUUID(), price * stack.getCount(), "sell");
+                                player.getUUID(), price * stack.getCount(), reason);
                         slot.set(ItemStack.EMPTY);
                         slot.setChanged();
                         this.broadcastChanges();

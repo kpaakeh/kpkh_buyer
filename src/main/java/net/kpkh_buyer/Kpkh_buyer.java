@@ -2,6 +2,7 @@ package net.kpkh_buyer;
 
 import net.fabricmc.api.ModInitializer;
 import net.kpkh_buyer.economy.EconomyCommands;
+import net.kpkh_buyer.economy.EconomyConfig;
 import net.kpkh_buyer.economy.EconomyEvents;
 import net.kpkh_buyer.economy.EconomyManager;
 import net.kpkh_buyer.economy.net.EconomyNetworking;
@@ -16,6 +17,7 @@ public class Kpkh_buyer implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
+		EconomyConfig.load();           // ← добавить
         BuyerConfig.load();               // загружаем цены
         EconomyCommands.register();       // /bal и /pay
         EconomyEvents.register();         // запоминаем имена при входе

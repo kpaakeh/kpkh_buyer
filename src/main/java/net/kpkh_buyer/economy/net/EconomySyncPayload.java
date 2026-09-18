@@ -19,6 +19,7 @@ public record EconomySyncPayload(
 
     public static final StreamCodec<RegistryFriendlyByteBuf, EconomySyncPayload> CODEC =
             StreamCodec.of(
+                    // ─── Запись ───
                     (buf, payload) -> {
                         buf.writeDouble(payload.balance);
                         buf.writeInt(payload.history.size());
@@ -28,6 +29,7 @@ public record EconomySyncPayload(
                             buf.writeDouble(e.amount);
                             buf.writeBoolean(e.positive);
                             buf.writeLong(e.timestamp);
+                            buf.writeUtf(e.comment != null ? e.comment : "");
                         }
                         buf.writeInt(payload.top.size());
                         for (TopEntry e : payload.top) {
@@ -36,6 +38,7 @@ public record EconomySyncPayload(
                             buf.writeDouble(e.balance);
                         }
                     },
+                    // ─── Чтение ───
                     buf -> {
                         double balance = buf.readDouble();
                         int hsize = buf.readInt();
@@ -46,7 +49,8 @@ public record EconomySyncPayload(
                             double amount = buf.readDouble();
                             boolean positive = buf.readBoolean();
                             long timestamp = buf.readLong();
-                            history.add(new HistoryEntry(type, otherName, amount, positive, timestamp));
+                            String comment = buf.readUtf();
+                            history.add(new HistoryEntry(type, otherName, amount, positive, timestamp, comment));
                         }
                         int tsize = buf.readInt();
                         List<TopEntry> top = new ArrayList<>();
@@ -60,6 +64,7 @@ public record EconomySyncPayload(
     @Override
     public Type<? extends CustomPacketPayload> type() { return ID; }
 
-    public record HistoryEntry(String type, String otherName, double amount, boolean positive, long timestamp) {}
+    public record HistoryEntry(String type, String otherName, double amount,
+                               boolean positive, long timestamp, String comment) {}
     public record TopEntry(String uuid, String name, double balance) {}
 }

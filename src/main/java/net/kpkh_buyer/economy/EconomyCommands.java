@@ -2,13 +2,14 @@ package net.kpkh_buyer.economy;
 
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
-import net.kpkh_buyer.EconomyScreenHandler;
 import net.kpkh_buyer.economy.net.EconomyNetworking;
+import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.SimpleMenuProvider;
 
 import java.util.UUID;
 
@@ -29,46 +30,21 @@ public class EconomyCommands {
                     })
             );
 
-            // /pay <ник> <сумма>
+            // /pay <ник> <сумма> [комментарий]
             dispatcher.register(
                 Commands.literal("pay")
                     .then(Commands.argument("target", StringArgumentType.word())
                         .then(Commands.argument("amount", DoubleArgumentType.doubleArg(0.01))
-                            .executes(ctx -> {
-                                ServerPlayer sender = ctx.getSource().getPlayerOrException();
-                                String targetName = StringArgumentType.getString(ctx, "target");
-                                double amount = DoubleArgumentType.getDouble(ctx, "amount");
-
-                                UUID targetUuid = EconomyManager.resolveByName(targetName);
-
-                                if (sender.getUUID().equals(targetUuid)) {
-                                    ctx.getSource().sendFailure(
-                                        Component.literal("Нельзя переводить самому себе"));
-                                    return 0;
-                                }
-
-                                if (!EconomyManager.transfer(sender.getUUID(), targetUuid, amount, "pay command")) {
-                                    ctx.getSource().sendFailure(
-                                        Component.literal("Недостаточно средств"));
-                                    return 0;
-                                }
-
-                                ctx.getSource().sendSuccess(() -> Component.literal(
-                                    "Переведено " + EconomyManager.format(amount)
-                                    + " игроку " + targetName), false);
-
-                                ServerPlayer target = ctx.getSource().getServer()
-                                    .getPlayerList().getPlayerByName(targetName);
-                                if (target != null) {
-                                    target.sendSystemMessage(Component.literal(
-                                        "Получено " + EconomyManager.format(amount)
-                                        + " от " + sender.getName().getString()));
-                                }
-                                return 1;
-                            })))
+                            .executes(ctx -> doPay(ctx, null))
+                            .then(Commands.argument("comment", StringArgumentType.greedyString())
+                                .executes(ctx -> doPay(ctx,
+                                        StringArgumentType.getString(ctx, "comment")))
+                            )
+                        )
+                    )
             );
 
-            // /eco — открывает GUI экономики (только отправляет пакет, клиент сам открывает экран)
+            // /eco — открывает GUI экономики
             dispatcher.register(
                 Commands.literal("eco")
                     .executes(ctx -> {
@@ -78,5 +54,38 @@ public class EconomyCommands {
                     })
             );
         });
+    }
+
+    // Вынесен на уровень класса, не внутри лямбды!
+    private static int doPay(CommandContext<CommandSourceStack> ctx, String comment)
+            throws CommandSyntaxException {
+        ServerPlayer sender = ctx.getSource().getPlayerOrException();
+        String targetName = StringArgumentType.getString(ctx, "target");
+        double amount = DoubleArgumentType.getDouble(ctx, "amount");
+
+        UUID targetUuid = EconomyManager.resolveByName(targetName);
+
+        if (sender.getUUID().equals(targetUuid)) {
+            ctx.getSource().sendFailure(Component.literal("Нельзя переводить самому себе"));
+            return 0;
+        }
+
+        if (!EconomyManager.transfer(sender.getUUID(), targetUuid, amount, "pay command", comment)) {
+            ctx.getSource().sendFailure(Component.literal("Недостаточно средств"));
+            return 0;
+        }
+
+        ctx.getSource().sendSuccess(() -> Component.literal(
+                "Переведено " + EconomyManager.format(amount) + " игроку " + targetName), false);
+
+        ServerPlayer target = ctx.getSource().getServer()
+                .getPlayerList().getPlayerByName(targetName);
+        if (target != null) {
+            String msg = "Получено " + EconomyManager.format(amount)
+                    + " от " + sender.getName().getString();
+            if (comment != null && !comment.isEmpty()) msg += " (" + comment + ")";
+            target.sendSystemMessage(Component.literal(msg));
+        }
+        return 1;
     }
 }

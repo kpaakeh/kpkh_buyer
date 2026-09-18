@@ -18,7 +18,6 @@ public class EconomyManager {
     private static Connection connection;
     private static final Object LOCK = new Object();
 
-    /** Вызывается при старте сервера/мира. economyDir = <мир>/economy */
     public static void initialize(Path economyDir) {
         synchronized (LOCK) {
             try {
@@ -60,6 +59,7 @@ public class EconomyManager {
                     amount REAL NOT NULL,
                     type TEXT NOT NULL,
                     reason TEXT,
+                    comment TEXT,
                     timestamp INTEGER NOT NULL
                 )
             """);
@@ -69,6 +69,11 @@ public class EconomyManager {
                     name TEXT NOT NULL
                 )
             """);
+
+            // Миграция: если БД уже была — добавить колонку comment
+            try { stmt.execute("ALTER TABLE transactions ADD COLUMN comment TEXT"); }
+            catch (SQLException ignored) {}
+
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_tx_from ON transactions(from_uuid)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_tx_to ON transactions(to_uuid)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_tx_time ON transactions(timestamp)");
@@ -106,7 +111,7 @@ public class EconomyManager {
     public static void deposit(UUID uuid, double amount) {
         deposit(uuid, amount, null);
     }
-    
+
     public static void deposit(UUID uuid, double amount, String reason) {
         if (amount <= 0) return;
         synchronized (LOCK) {
@@ -117,7 +122,7 @@ public class EconomyManager {
                 ps.setDouble(2, amount);
                 ps.executeUpdate();
             } catch (SQLException e) { e.printStackTrace(); }
-            logTransaction(null, uuid, amount, "deposit", reason);
+            logTransaction(null, uuid, amount, "deposit", reason, null);
         }
     }
 
@@ -131,13 +136,18 @@ public class EconomyManager {
                 ps.setString(2, uuid.toString());
                 ps.executeUpdate();
             } catch (SQLException e) { e.printStackTrace(); return false; }
-            logTransaction(uuid, null, amount, "withdraw", null);
+            logTransaction(uuid, null, amount, "withdraw", null, null);
             return true;
         }
     }
 
-    /** Атомарный перевод между двумя игроками с записью в историю */
+    // ---------- Переводы ----------
+
     public static boolean transfer(UUID from, UUID to, double amount, String reason) {
+        return transfer(from, to, amount, reason, null);
+    }
+
+    public static boolean transfer(UUID from, UUID to, double amount, String reason, String comment) {
         if (amount <= 0 || from.equals(to)) return false;
         synchronized (LOCK) {
             if (getBalance(from) < amount) return false;
@@ -164,32 +174,36 @@ public class EconomyManager {
             } finally {
                 try { connection.setAutoCommit(true); } catch (SQLException ignored) {}
             }
-            logTransaction(from, to, amount, "transfer", reason);
+            logTransaction(from, to, amount, "transfer", reason, comment);
             return true;
         }
     }
 
-    // ---------- История транзакций ----------
+    // ---------- Логирование ----------
 
-    private static void logTransaction(UUID from, UUID to, double amount, String type, String reason) {
+    private static void logTransaction(UUID from, UUID to, double amount,
+                                       String type, String reason, String comment) {
         try (PreparedStatement ps = connection.prepareStatement(
-                "INSERT INTO transactions(from_uuid, to_uuid, amount, type, reason, timestamp) " +
-                "VALUES (?, ?, ?, ?, ?, ?)")) {
+                "INSERT INTO transactions(from_uuid, to_uuid, amount, type, reason, comment, timestamp) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?)")) {
             ps.setString(1, from != null ? from.toString() : null);
             ps.setString(2, to != null ? to.toString() : null);
             ps.setDouble(3, amount);
             ps.setString(4, type);
             ps.setString(5, reason);
-            ps.setLong(6, System.currentTimeMillis());
+            ps.setString(6, comment);
+            ps.setLong(7, System.currentTimeMillis());
             ps.executeUpdate();
         } catch (SQLException e) { e.printStackTrace(); }
     }
+
+    // ---------- История ----------
 
     public static List<TransactionRecord> getHistory(UUID uuid, int limit) {
         List<TransactionRecord> list = new ArrayList<>();
         synchronized (LOCK) {
             try (PreparedStatement ps = connection.prepareStatement(
-                    "SELECT id, from_uuid, to_uuid, amount, type, reason, timestamp " +
+                    "SELECT id, from_uuid, to_uuid, amount, type, reason, comment, timestamp " +
                     "FROM transactions WHERE from_uuid = ? OR to_uuid = ? " +
                     "ORDER BY timestamp DESC LIMIT ?")) {
                 ps.setString(1, uuid.toString());
@@ -206,6 +220,7 @@ public class EconomyManager {
                                 rs.getDouble("amount"),
                                 rs.getString("type"),
                                 rs.getString("reason"),
+                                rs.getString("comment"),
                                 rs.getLong("timestamp")
                         ));
                     }
@@ -216,12 +231,12 @@ public class EconomyManager {
     }
 
     public record TransactionRecord(long id, UUID from, UUID to, double amount,
-                                    String type, String reason, long timestamp) {}
+                                    String type, String reason, String comment, long timestamp) {}
 
     // ---------- Утилиты ----------
 
     public static String format(double amount) {
-        return String.format("$%,.2f", amount);
+        return String.format("%s%,.2f", EconomyConfig.currencySymbol, amount);
     }
 
     public static void registerName(UUID uuid, String name) {
@@ -237,6 +252,20 @@ public class EconomyManager {
         }
     }
 
+    public static String getName(UUID uuid) {
+        synchronized (LOCK) {
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "SELECT name FROM player_names WHERE uuid = ?")) {
+                ps.setString(1, uuid.toString());
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) return rs.getString(1);
+                }
+            } catch (SQLException e) { e.printStackTrace(); }
+        }
+        // Полный UUID вместо обрезки
+        return uuid.toString();
+    }
+
     public static UUID resolveByName(String name) {
         synchronized (LOCK) {
             try (PreparedStatement ps = connection.prepareStatement(
@@ -249,19 +278,13 @@ public class EconomyManager {
         }
         return getOfflineUUID(name);
     }
-    public static String getName(UUID uuid) {
-        synchronized (LOCK) {
-            try (PreparedStatement ps = connection.prepareStatement(
-                    "SELECT name FROM player_names WHERE uuid = ?")) {
-                ps.setString(1, uuid.toString());
-                try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) return rs.getString(1);
-                }
-            } catch (SQLException e) { e.printStackTrace(); }
-        }
-        return uuid.toString().substring(0, 8) + "...";
+
+    public static UUID getOfflineUUID(String name) {
+        return UUID.nameUUIDFromBytes(("OfflinePlayer:" + name).getBytes(StandardCharsets.UTF_8));
     }
-    
+
+    // ---------- Топ ----------
+
     public record TopEntry(String uuid, String name, double balance) {}
 
     public static List<TopEntry> getTopBalances(int limit) {
@@ -277,7 +300,7 @@ public class EconomyManager {
                         String uuid = rs.getString("uuid");
                         String name = rs.getString("name");
                         if (name == null) {
-                            name = uuid.length() >= 8 ? uuid.substring(0, 8) + "..." : uuid;
+                            name = uuid;   // полный UUID
                         }
                         list.add(new TopEntry(uuid, name, rs.getDouble("balance")));
                     }
@@ -285,8 +308,5 @@ public class EconomyManager {
             } catch (SQLException e) { e.printStackTrace(); }
         }
         return list;
-    }
-    public static UUID getOfflineUUID(String name) {
-        return UUID.nameUUIDFromBytes(("OfflinePlayer:" + name).getBytes(StandardCharsets.UTF_8));
     }
 }

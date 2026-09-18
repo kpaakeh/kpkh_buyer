@@ -10,5 +10,7 @@ public class Kpkh_buyerClient implements ClientModInitializer {
     public void onInitializeClient() {
         MenuScreens.register(ModScreenHandlers.BUYER_SCREEN_HANDLER, BuyerScreen::new);
         EconomyClientNetworking.register();
+        EconomyKeys.register();
+        EconomyKeyHandler.register();
     }
 }
