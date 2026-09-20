@@ -1,0 +1,6 @@
+{
+    "parent": "minecraft:item/generated",
+    "textures": {
+      "layer0": "kpkh_buyer:item/rune_of_feather_falling"
+    }
+  }

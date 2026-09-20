@@ -1,18 +1,47 @@
-[
+{
+  "categories": [
     {
-      "item": "minecraft:diamond",
-      "price": 150.0
+      "id": "ores",
+      "display_name": "Руды",
+      "icon": "minecraft:iron_ore",
+      "items": [
+        {
+          "items": [
+            "minecraft:gold_ore",
+            "minecraft:deepslate_gold_ore",
+            "minecraft:nether_gold_ore"
+          ],
+          "price": 25.0,
+          "mode": "buy"
+        },
+        {
+          "items": ["minecraft:diamond_ore", "minecraft:deepslate_diamond_ore"],
+          "price": 100.0,
+          "mode": "buy"
+        },
+        {
+          "items": ["minecraft:diamond"],
+          "price": 200.0,
+          "mode": "sell"
+        }
+      ]
     },
     {
-      "item": "minecraft:emerald",
-      "price": 100.0
-    },
-    {
-      "item": "minecraft:iron_ingot",
-      "price": 25.0
-    },
-    {
-      "item": "minecraft:gold_ingot",
-      "price": 40.0
+      "id": "food",
+      "display_name": "Еда",
+      "icon": "minecraft:apple",
+      "items": [
+        {
+          "items": ["minecraft:apple", "minecraft:bread"],
+          "price": 3.0,
+          "mode": "buy"
+        },
+        {
+          "items": ["minecraft:cooked_beef"],
+          "price": 5.0,
+          "mode": "buy"
+        }
+      ]
     }
   ]
+}

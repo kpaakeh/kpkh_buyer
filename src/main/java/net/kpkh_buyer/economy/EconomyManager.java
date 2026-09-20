@@ -12,6 +12,10 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.FontDescription;
+import net.minecraft.network.chat.Style;
+import net.minecraft.resources.Identifier;
 
 public class EconomyManager {
 
@@ -235,8 +239,14 @@ public class EconomyManager {
 
     // ---------- Утилиты ----------
 
+    public static String formatNumber(double amount) {
+        java.text.DecimalFormat df = new java.text.DecimalFormat("#,##0.##");
+        df.setRoundingMode(java.math.RoundingMode.HALF_UP);
+        return df.format(amount);
+    }
+
     public static String format(double amount) {
-        return String.format("%s%,.2f", EconomyConfig.currencySymbol, amount);
+        return EconomyConfig.currencySymbol + formatNumber(amount);
     }
 
     public static void registerName(UUID uuid, String name) {
@@ -283,6 +293,29 @@ public class EconomyManager {
         return UUID.nameUUIDFromBytes(("OfflinePlayer:" + name).getBytes(StandardCharsets.UTF_8));
     }
 
+        /** Возвращает Component с кастомным символом валюты (для чата).
+     *  Символ рисуется из шрифт-провайдера. */
+            /** Символ валюты из шрифт-провайдера — рисуется как текстура */
+    private static final Component CURRENCY_GLYPH = Component.literal("\uE000")
+            .withStyle(Style.EMPTY.withFont(
+                    new FontDescription.Resource(
+                            Identifier.fromNamespaceAndPath("kpkh_buyer", "default"))));
+
+    /** Component: число + кастомный символ валюты (для чата) */
+    public static Component formatComponent(double amount) {
+        return Component.literal(formatNumber(amount)).append(CURRENCY_GLYPH);
+    }
+
+    /** Component: знак + число + кастомный символ валюты */
+    public static Component formatComponentWithSign(double amount, boolean positive) {
+        String sign = positive ? "+" : "−";
+        return Component.literal(sign + formatNumber(amount)).append(CURRENCY_GLYPH);
+    }
+
+    /** Одиночный символ валюты (для вставки в другие компоненты) */
+    public static Component currencyGlyph() {
+        return CURRENCY_GLYPH;
+    }
     // ---------- Топ ----------
 
     public record TopEntry(String uuid, String name, double balance) {}

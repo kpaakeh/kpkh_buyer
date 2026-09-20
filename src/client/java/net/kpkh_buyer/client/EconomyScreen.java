@@ -1,7 +1,7 @@
 package net.kpkh_buyer.client;
 
 import net.kpkh_buyer.EconomyScreenHandler;
-import net.kpkh_buyer.economy.EconomyConfig;
+import net.kpkh_buyer.economy.EconomyManager;
 import net.kpkh_buyer.economy.net.EconomySyncPayload;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -30,6 +30,10 @@ public class EconomyScreen extends AbstractContainerScreen<EconomyScreenHandler>
     private static final Identifier TEXTURE = Identifier.fromNamespaceAndPath(
             "kpkh_buyer", "textures/gui/economy_gui.png");
 
+    private static final Identifier CURRENCY_TEX = Identifier.fromNamespaceAndPath(
+            "kpkh_buyer", "textures/gui/currency.png");
+    private static final int CURRENCY_SIZE = 8;
+
     // ─── Палитра ───
     private static final int C_TEXT          = 0xFFFFFFFF;
     private static final int C_MUTED         = 0xFFBBBBBB;
@@ -57,11 +61,10 @@ public class EconomyScreen extends AbstractContainerScreen<EconomyScreenHandler>
     private static final int TOP_VISIBLE = 4;
     private static final int TOP_ROW_H = 22;
 
-    // ─── Границы панелей ───
     private static final int HIST_PANEL_LEFT  = 26;
     private static final int HIST_PANEL_RIGHT = 230;
     private static final int TOP_PANEL_LEFT   = 268;
-    private static final int TOP_PANEL_RIGHT  = 420;
+    private static final int TOP_PANEL_RIGHT  = 410;
     private static final int HIST_CENTER = (HIST_PANEL_LEFT + HIST_PANEL_RIGHT) / 2;
     private static final int TOP_CENTER  = (TOP_PANEL_LEFT + TOP_PANEL_RIGHT) / 2;
 
@@ -127,13 +130,34 @@ public class EconomyScreen extends AbstractContainerScreen<EconomyScreenHandler>
         this.historyScroll = 0;
     }
 
+    // ─── Иконка валюты (число, затем иконка) ───
+    private int currencyWidth(double amount) {
+        String num = EconomyManager.formatNumber(amount);
+        return this.font.width(num) + 3 + CURRENCY_SIZE;
+    }
+
+    private void drawCurrency(GuiGraphicsExtractor g, double amount, int x, int y,
+                              int color, boolean shadow) {
+        String num = EconomyManager.formatNumber(amount);
+        g.text(this.font, num, x, y, color, shadow);
+        g.blit(RenderPipelines.GUI_TEXTURED, CURRENCY_TEX,
+                x + this.font.width(num) + 3, y - 1, 0, 0,
+                CURRENCY_SIZE, CURRENCY_SIZE,
+                CURRENCY_SIZE, CURRENCY_SIZE);
+    }
+
+    private void drawCurrencyRight(GuiGraphicsExtractor g, double amount, int rightX, int y,
+                                   int color, boolean shadow) {
+        int w = currencyWidth(amount);
+        drawCurrency(g, amount, rightX - w, y, color, shadow);
+    }
+
     @Override
     protected void init() {
         super.init();
         int x = this.width / 2 - WIN_W / 2;
         int y = this.height / 2 - WIN_H / 2;
 
-        // ─── Кнопки фильтра и сортировки ───
         int panelW = HIST_PANEL_RIGHT - HIST_PANEL_LEFT;
         int gap = 4;
         int btnW = (panelW - gap) / 2;
@@ -156,7 +180,6 @@ public class EconomyScreen extends AbstractContainerScreen<EconomyScreenHandler>
         }).bounds(x + HIST_PANEL_LEFT + btnW + gap, btnY, btnW, btnH).build();
         addRenderableWidget(sortButton);
 
-        // ─── Строка 1: ник, сумма, отправить ───
         int inputsW = 120 + 6 + 70 + 6 + 80;
         int inputsX = x + (WIN_W - inputsW) / 2;
 
@@ -175,7 +198,6 @@ public class EconomyScreen extends AbstractContainerScreen<EconomyScreenHandler>
         addRenderableWidget(Button.builder(tr("gui.kpkh_buyer.economy.send"), b -> doTransfer())
                 .bounds(inputsX + 202, y + 198, 80, 16).build());
 
-        // ─── Строка 2: комментарий ───
         this.commentField = new EditBox(this.font, inputsX, y + 218, 282, 16,
                 Component.literal(""));
         this.commentField.setMaxLength(100);
@@ -229,7 +251,6 @@ public class EconomyScreen extends AbstractContainerScreen<EconomyScreenHandler>
         nickHistoryCursor = -1;
     }
 
-    /** Enter = отправить, ↑/↓ = история ников */
     @Override
     public boolean keyPressed(net.minecraft.client.input.KeyEvent keyEvent) {
         int keyCode = keyEvent.key();
@@ -244,12 +265,12 @@ public class EconomyScreen extends AbstractContainerScreen<EconomyScreenHandler>
         }
         if (this.nickField != null && this.nickField.isFocused()
                 && !nickHistory.isEmpty()) {
-            if (keyCode == 265) { // up
+            if (keyCode == 265) {
                 if (nickHistoryCursor < nickHistory.size() - 1) nickHistoryCursor++;
                 this.nickField.setValue(nickHistory.get(nickHistoryCursor));
                 return true;
             }
-            if (keyCode == 264) { // down
+            if (keyCode == 264) {
                 if (nickHistoryCursor > 0) {
                     nickHistoryCursor--;
                     this.nickField.setValue(nickHistory.get(nickHistoryCursor));
@@ -263,7 +284,6 @@ public class EconomyScreen extends AbstractContainerScreen<EconomyScreenHandler>
         return super.keyPressed(keyEvent);
     }
 
-    /** Клик по нику в топе, Ctrl+клик по истории */
     @Override
     public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent mouseEvent, boolean doubleClick) {
         double mouseX = mouseEvent.x();
@@ -274,7 +294,6 @@ public class EconomyScreen extends AbstractContainerScreen<EconomyScreenHandler>
         int x = (this.width - this.imageWidth) / 2;
         int y = (this.height - this.imageHeight) / 2;
 
-        // ─── Клик по нику в топе ───
         int shownTop = 0;
         for (int i = topScroll; i < top.size() && shownTop < TOP_VISIBLE; i++, shownTop++) {
             EconomySyncPayload.TopEntry e = top.get(i);
@@ -287,7 +306,6 @@ public class EconomyScreen extends AbstractContainerScreen<EconomyScreenHandler>
 
             if (mouseX >= nickX && mouseX <= x + TOP_PANEL_RIGHT - 4
                     && mouseY >= rowY + 1 && mouseY <= rowY + 11) {
-                // Shift → копировать в буфер
                 if (EconomyKeys.SHIFT_KEY.isDown()) {
                     Minecraft.getInstance().keyboardHandler.setClipboard(e.name());
                 } else {
@@ -298,7 +316,6 @@ public class EconomyScreen extends AbstractContainerScreen<EconomyScreenHandler>
             }
         }
 
-        // ─── Ctrl+клик по строке истории = заполнить поля ───
         if (EconomyKeys.CTRL_KEY.isDown()) {
             List<EconomySyncPayload.HistoryEntry> filtered = getFilteredAndSortedHistory();
             int rowLeft = x + HIST_PANEL_LEFT;
@@ -358,15 +375,14 @@ public class EconomyScreen extends AbstractContainerScreen<EconomyScreenHandler>
         int y = (this.height - this.imageHeight) / 2;
         int cx = x + this.imageWidth / 2;
 
-        // ─── Баланс ───
+        // ─── Баланс (центр) ───
         String balLabel = tr("gui.kpkh_buyer.economy.balance").getString();
-        String balValue = format(balance);
         int balLabelW = this.font.width(balLabel);
-        int balValueW = this.font.width(balValue);
+        int balValueW = currencyWidth(balance);
         int balTotalW = balLabelW + 6 + balValueW;
         int balX = cx - balTotalW / 2;
         g.text(this.font, balLabel, balX, y + 20, C_MUTED, true);
-        g.text(this.font, balValue, balX + balLabelW + 6, y + 20, C_GOLD, true);
+        drawCurrency(g, balance, balX + balLabelW + 6, y + 20, C_GOLD, true);
 
         // ─── Шапки панелей ───
         Component histTitle = tr("gui.kpkh_buyer.economy.history");
@@ -392,16 +408,20 @@ public class EconomyScreen extends AbstractContainerScreen<EconomyScreenHandler>
             if (parsed > 0) {
                 double remaining = this.balance - parsed;
                 String remLabel = tr("gui.kpkh_buyer.economy.hint.remaining").getString();
-                String remStr = format(Math.max(0, remaining));
                 int inputsW = 120 + 6 + 70 + 6 + 80;
                 int inputsX = x + (WIN_W - inputsW) / 2;
                 int amtX = inputsX + 126;
                 int amtW = 70;
-                String text = remLabel + " " + remStr;
-                int textW = this.font.width(text);
-                int textX = amtX + (amtW - textW) / 2;
+
+                int labelW = this.font.width(remLabel);
+                int curW = currencyWidth(Math.max(0, remaining));
+                int totalW = labelW + 4 + curW;
+                int textX = amtX + (amtW - totalW) / 2;
                 int color = remaining < 0 ? C_EXPENSE : C_MUTED;
-                g.text(this.font, text, textX, y + 188, color, false);
+
+                g.text(this.font, remLabel, textX, y + 188, color, false);
+                drawCurrency(g, Math.max(0, remaining),
+                        textX + labelW + 4, y + 188, color, false);
             }
         }
 
@@ -409,7 +429,6 @@ public class EconomyScreen extends AbstractContainerScreen<EconomyScreenHandler>
             drawHistoryTooltip(g, hoveredEntry, mouseX, mouseY);
         }
 
-        // ─── Скролл-подсказки ───
         if (getFilteredAndSortedHistory().size() > HISTORY_VISIBLE) {
             g.text(this.font, "▼", x + HIST_CENTER - 3, y + 172, C_MUTED, false);
         }
@@ -456,8 +475,9 @@ public class EconomyScreen extends AbstractContainerScreen<EconomyScreenHandler>
                 }
             }
 
-            String amountStr = (h.positive() ? "+" : "−") + format(h.amount());
-            int amountW = this.font.width(amountStr);
+            String sign = h.positive() ? "+" : "−";
+            int signW = this.font.width(sign);
+            int amountW = signW + currencyWidth(h.amount());
             int amountX = rowRight - amountW;
 
             int reasonX = rowLeft + dateW + 5;
@@ -470,7 +490,8 @@ public class EconomyScreen extends AbstractContainerScreen<EconomyScreenHandler>
             g.text(this.font, drawnText, reasonX, hy, C_TEXT, true);
 
             int color = h.positive() ? C_INCOME : C_EXPENSE;
-            g.text(this.font, amountStr, amountX, hy, color, true);
+            g.text(this.font, sign, amountX, hy, color, true);
+            drawCurrency(g, h.amount(), amountX + signW, hy, color, true);
 
             if (mouseX >= rowLeft && mouseX <= rowRight
                     && mouseY >= hy - 1 && mouseY <= hy + 10) {
@@ -481,6 +502,7 @@ public class EconomyScreen extends AbstractContainerScreen<EconomyScreenHandler>
         }
     }
 
+    /** Ручной тултип с иконкой валюты */
     private void drawHistoryTooltip(GuiGraphicsExtractor g,
                                     EconomySyncPayload.HistoryEntry h,
                                     int mouseX, int mouseY) {
@@ -498,22 +520,23 @@ public class EconomyScreen extends AbstractContainerScreen<EconomyScreenHandler>
             }
         }
 
-        List<String> lines = new ArrayList<>();
-        lines.add(full);
-        lines.add(fullReason);
-        lines.add((h.positive() ? "+" : "−") + format(h.amount()));
-        if (h.comment() != null && !h.comment().isEmpty()) {
-            lines.add("«" + h.comment() + "»");
-        }
+        String amountNum = EconomyManager.formatNumber(h.amount());
+        String sign = h.positive() ? "+" : "−";
+        String commentLine = (h.comment() != null && !h.comment().isEmpty())
+                ? "«" + h.comment() + "»" : null;
 
-        int maxW = 0;
-        for (String line : lines) {
-            maxW = Math.max(maxW, this.font.width(line));
-        }
         int padding = 4;
         int lineH = 10;
+
+        int w1 = this.font.width(full);
+        int w2 = this.font.width(fullReason);
+        int w3 = this.font.width(sign) + 1 + this.font.width(amountNum) + 3 + CURRENCY_SIZE;
+        int w4 = commentLine != null ? this.font.width(commentLine) : 0;
+        int maxW = Math.max(Math.max(w1, w2), Math.max(w3, w4));
+
+        int lineCount = 3 + (commentLine != null ? 1 : 0);
         int boxW = maxW + padding * 2;
-        int boxH = lines.size() * lineH + padding * 2;
+        int boxH = lineCount * lineH + padding * 2;
 
         int tx = mouseX + 12;
         int ty = mouseY - 6;
@@ -527,15 +550,31 @@ public class EconomyScreen extends AbstractContainerScreen<EconomyScreenHandler>
         g.fill(tx + boxW - 1, ty, tx + boxW, ty + boxH, C_TOOLTIP_EDGE);
 
         int lineY = ty + padding;
-        for (int i = 0; i < lines.size(); i++) {
-            int color = switch (i) {
-                case 0 -> C_MUTED;
-                case 1 -> C_HEADER;
-                case 2 -> h.positive() ? C_INCOME : C_EXPENSE;
-                default -> C_MUTED;
-            };
-            g.text(this.font, lines.get(i), tx + padding, lineY, color, true);
-            lineY += lineH;
+
+        // Дата
+        g.text(this.font, full, tx + padding, lineY, C_MUTED, true);
+        lineY += lineH;
+
+        // Причина
+        g.text(this.font, fullReason, tx + padding, lineY, C_HEADER, true);
+        lineY += lineH;
+
+        // Сумма: знак + число + иконка
+        int amountColor = h.positive() ? C_INCOME : C_EXPENSE;
+        g.text(this.font, sign, tx + padding, lineY, amountColor, true);
+        int signW = this.font.width(sign);
+        int numX = tx + padding + signW + 1;
+        g.text(this.font, amountNum, numX, lineY, amountColor, true);
+        int numW = this.font.width(amountNum);
+        g.blit(RenderPipelines.GUI_TEXTURED, CURRENCY_TEX,
+                numX + numW + 3, lineY - 1, 0, 0,
+                CURRENCY_SIZE, CURRENCY_SIZE,
+                CURRENCY_SIZE, CURRENCY_SIZE);
+        lineY += lineH;
+
+        // Комментарий
+        if (commentLine != null) {
+            g.text(this.font, commentLine, tx + padding, lineY, C_MUTED, true);
         }
     }
 
@@ -610,8 +649,8 @@ public class EconomyScreen extends AbstractContainerScreen<EconomyScreenHandler>
                 g.text(this.font, " (Вы)", nickX + nickW, rowY + 1, C_SELF, false);
             }
 
-            String balStr = formatInt(e.balance());
-            g.text(this.font, balStr, nickX, rowY + 12, C_GOLD, true);
+            // ← Сдвиг влево: с 4 на 16 пикселей от правого края панели
+            drawCurrencyRight(g, e.balance(), x + TOP_PANEL_RIGHT - 16, rowY + 12, C_GOLD, true);
         }
     }
 
@@ -653,14 +692,6 @@ public class EconomyScreen extends AbstractContainerScreen<EconomyScreenHandler>
         } catch (Exception ex) {
             g.fill(x, y, x + size, y + size, 0xFF666666);
         }
-    }
-
-    private static String format(double d) {
-        return String.format("%s%,.2f", EconomyConfig.currencySymbol, d);
-    }
-
-    private static String formatInt(double d) {
-        return String.format("%s%,.0f", EconomyConfig.currencySymbol, d);
     }
 
     @Override

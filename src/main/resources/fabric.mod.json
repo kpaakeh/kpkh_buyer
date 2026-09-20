@@ -22,13 +22,6 @@
 			"net.kpkh_buyer.client.Kpkh_buyerClient"
 		]
 	},
-	"mixins": [
-		"kpkh_buyer.mixins.json",
-		{
-			"config": "kpkh_buyer.client.mixins.json",
-			"environment": "client"
-		}
-	],
 	"depends": {
 		"fabricloader": ">=0.19.5",
 		"minecraft": "~26.3",

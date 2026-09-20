@@ -38,5 +38,13 @@
     "key.kpkh_buyer.shift": "Shift",
     "key.kpkh_buyer.ctrl": "Control",
     "key.category.kpkh_buyer.economy": "kpkh_buyer",
-    "key.kpkh_buyer.open_economy": "Открыть банковское приложение"
+    "key.kpkh_buyer.open_economy": "Открыть банковское приложение",
+    "item.kpkh_buyer.rune_of_efficiency": "Руна эффективности",
+    "item.kpkh_buyer.rune_of_fortune": "Руна удачи",
+    "item.kpkh_buyer.rune_of_sharpness": "Руна остроты",
+    "item.kpkh_buyer.rune_of_protection": "Руна защиты",
+    "item.kpkh_buyer.rune_of_feather_falling": "Руна невесомости",
+    "item.kpkh_buyer.rune_of_thorns": "Руна отдачи",
+    "item.kpkh_buyer.rune_of_looting": "Руна добычи",
+    "item.kpkh_buyer.rune_of_unbreaking": "Руна неразрушимости"
   }

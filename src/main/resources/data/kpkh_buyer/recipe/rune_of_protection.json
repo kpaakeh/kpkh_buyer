@@ -1,0 +1,6 @@
+{
+  "type": "kpkh_buyer:rune_smithing",
+  "base": "#minecraft:enchantable/armor",
+  "addition": "kpkh_buyer:rune_of_protection",
+  "enchantment": "minecraft:protection"
+}

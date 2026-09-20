@@ -1,0 +1,6 @@
+{
+  "type": "kpkh_buyer:rune_smithing",
+  "base": "#minecraft:enchantable/sharp_weapon",
+  "addition": "kpkh_buyer:rune_of_sharpness",
+  "enchantment": "minecraft:sharpness"
+}

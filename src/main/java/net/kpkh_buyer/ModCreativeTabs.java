@@ -1,6 +1,7 @@
 package net.kpkh_buyer;
 
 import net.fabricmc.fabric.api.creativetab.v1.FabricCreativeModeTab;
+import net.kpkh_buyer.item.ModItems;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -16,10 +17,21 @@ public class ModCreativeTabs {
     );
 
     public static final CreativeModeTab KPKH_TAB = FabricCreativeModeTab.builder()
-            .icon(() -> new ItemStack(kpkh_block.BUYER_ITEM)) // ← используем BlockItem
+            .icon(() -> new ItemStack(kpkh_block.BUYER_ITEM))
             .title(Component.translatable("itemGroup.kpkh_buyer.kpkh_tab"))
             .displayItems((params, output) -> {
-                output.accept(kpkh_block.BUYER_ITEM); // ← передаём BlockItem, а не Block
+                // Блок скупщика
+                output.accept(kpkh_block.BUYER_ITEM);
+
+                // Руны
+                output.accept(ModItems.RUNE_EFFICIENCY);
+                output.accept(ModItems.RUNE_FORTUNE);
+                output.accept(ModItems.RUNE_SHARPNESS);
+                output.accept(ModItems.RUNE_PROTECTION);
+                output.accept(ModItems.RUNE_FEATHER_FALLING);
+                output.accept(ModItems.RUNE_THORNS);
+                output.accept(ModItems.RUNE_LOOTING);
+                output.accept(ModItems.RUNE_UNBREAKING);
             })
             .build();
 

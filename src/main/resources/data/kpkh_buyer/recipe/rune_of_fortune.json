@@ -1,0 +1,6 @@
+{
+  "type": "kpkh_buyer:rune_smithing",
+  "base": "#minecraft:enchantable/mining_loot",
+  "addition": "kpkh_buyer:rune_of_fortune",
+  "enchantment": "minecraft:fortune"
+}

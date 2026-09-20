@@ -1,0 +1,6 @@
+{
+  "type": "kpkh_buyer:rune_smithing",
+  "base": "#minecraft:enchantable/chest_armor",
+  "addition": "kpkh_buyer:rune_of_thorns",
+  "enchantment": "minecraft:thorns"
+}

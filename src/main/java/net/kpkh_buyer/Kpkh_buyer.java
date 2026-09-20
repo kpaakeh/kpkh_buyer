@@ -6,6 +6,7 @@ import net.kpkh_buyer.economy.EconomyConfig;
 import net.kpkh_buyer.economy.EconomyEvents;
 import net.kpkh_buyer.economy.EconomyManager;
 import net.kpkh_buyer.economy.net.EconomyNetworking;
+import net.kpkh_buyer.item.ModItems;
 import net.minecraft.resources.Identifier;
 
 import org.slf4j.Logger;
@@ -23,7 +24,8 @@ public class Kpkh_buyer implements ModInitializer {
         EconomyEvents.register();         // запоминаем имена при входе
 		EconomyNetworking.registerCommon();
 		BuyerConfig.load();  
-
+		ModItems.initialize();
+		ModRecipes.initialize();
 		kpkh_block.initialize();          // создаёт BUYER_BLOCK и BUYER_ITEM
 		ModBlockEntities.initialize();    // использует BUYER_BLOCK
 		ModScreenHandlers.initialize();   // регистрирует MenuType

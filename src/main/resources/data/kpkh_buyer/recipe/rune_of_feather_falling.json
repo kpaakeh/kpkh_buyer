@@ -1,0 +1,6 @@
+{
+  "type": "kpkh_buyer:rune_smithing",
+  "base": "#minecraft:enchantable/foot_armor",
+  "addition": "kpkh_buyer:rune_of_feather_falling",
+  "enchantment": "minecraft:feather_falling"
+}

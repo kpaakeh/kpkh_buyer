@@ -25,7 +25,8 @@ public class EconomyCommands {
                         ServerPlayer player = ctx.getSource().getPlayerOrException();
                         double balance = EconomyManager.getBalance(player.getUUID());
                         ctx.getSource().sendSuccess(() ->
-                            Component.literal("Баланс: " + EconomyManager.format(balance)), false);
+                                Component.literal("Баланс: ")
+                                        .append(EconomyManager.formatComponent(balance)), false);
                         return 1;
                     })
             );
@@ -56,7 +57,6 @@ public class EconomyCommands {
         });
     }
 
-    // Вынесен на уровень класса, не внутри лямбды!
     private static int doPay(CommandContext<CommandSourceStack> ctx, String comment)
             throws CommandSyntaxException {
         ServerPlayer sender = ctx.getSource().getPlayerOrException();
@@ -75,16 +75,23 @@ public class EconomyCommands {
             return 0;
         }
 
-        ctx.getSource().sendSuccess(() -> Component.literal(
-                "Переведено " + EconomyManager.format(amount) + " игроку " + targetName), false);
+        // Сообщение отправителю
+        ctx.getSource().sendSuccess(() ->
+                Component.literal("Переведено ")
+                        .append(EconomyManager.formatComponent(amount))
+                        .append(Component.literal(" игроку " + targetName)), false);
 
+        // Сообщение получателю (если онлайн)
         ServerPlayer target = ctx.getSource().getServer()
                 .getPlayerList().getPlayerByName(targetName);
         if (target != null) {
-            String msg = "Получено " + EconomyManager.format(amount)
-                    + " от " + sender.getName().getString();
-            if (comment != null && !comment.isEmpty()) msg += " (" + comment + ")";
-            target.sendSystemMessage(Component.literal(msg));
+            Component msg = Component.literal("Получено ")
+                    .append(EconomyManager.formatComponent(amount))
+                    .append(Component.literal(" от " + sender.getName().getString()));
+            if (comment != null && !comment.isEmpty()) {
+                msg = msg.copy().append(Component.literal(" (" + comment + ")"));
+            }
+            target.sendSystemMessage(msg);
         }
         return 1;
     }

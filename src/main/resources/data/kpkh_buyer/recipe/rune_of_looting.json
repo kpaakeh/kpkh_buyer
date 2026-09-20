@@ -1,0 +1,6 @@
+{
+  "type": "kpkh_buyer:rune_smithing",
+  "base": "#minecraft:swords",
+  "addition": "kpkh_buyer:rune_of_looting",
+  "enchantment": "minecraft:looting"
+}

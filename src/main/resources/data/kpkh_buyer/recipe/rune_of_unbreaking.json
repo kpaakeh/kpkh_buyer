@@ -1,0 +1,6 @@
+{
+  "type": "kpkh_buyer:rune_smithing",
+  "base": "#minecraft:enchantable/durability",
+  "addition": "kpkh_buyer:rune_of_unbreaking",
+  "unbreakable": true
+}
